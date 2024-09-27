@@ -5,7 +5,12 @@ const udpSocket: dgram.Socket = dgram.createSocket("udp4");
 udpSocket.bind(2053, "127.0.0.1");
 
 udpSocket.on("message", (buf: Buffer, rinfo: dgram.RemoteInfo) => {
-  udpSocket.send("Message", rinfo.port, rinfo.address); //TO be updated
+  try {
+    console.log("buf", buf);
+    udpSocket.send("Message", rinfo.port, rinfo.address); //TO be updated
+  } catch (err) {
+    console.log(`Eror recieving data: ${err}`);
+  }
 });
 
 udpSocket.on("error", (err: Error) => {
