@@ -72,13 +72,26 @@ export class Packet {
 
   //Constructor
   constructor(buf: Buffer) {
-    const headerFlags = buf.readUInt16BE(2);
-    this.headerValues.id = buf.readUInt16BE(0);
-    this.headerValues.opcode = (headerFlags >> 11) & 0x0f;
-    this.headerValues.rd = (headerFlags >> 8) & 0x1;
-    this.headerValues.rcode = (headerFlags >> 0) & 0x0f;
-    this.questions.push(this.questionValues);
-    this.answers.push(this.answerValues);
+    if (buf.length < 12) {
+      throw new Error("Received buffer is too short for a DNS packet.");
+    }
+
+    try {
+      const headerFlags = buf.readUInt16BE(2);
+      this.headerValues.id = buf.readUInt16BE(0);
+      this.headerValues.opcode = (headerFlags >> 11) & 0x0f;
+      this.headerValues.rd = (headerFlags >> 8) & 0x1;
+      this.headerValues.rcode = (headerFlags >> 0) & 0x0f;
+
+      // Initialize question and answer counts based on actual data if available
+      this.headerValues.qdcount = this.questions.length;
+      this.headerValues.ancount = this.answers.length;
+
+      this.questions.push(this.questionValues);
+      this.answers.push(this.answerValues);
+    } catch (error) {
+      console.error("Error processing DNS packet:", error);
+    }
   }
 
   //Behaviour
@@ -86,7 +99,7 @@ export class Packet {
    * toBuffer() -> buffer with Header, Question,Answer
    */
 
-  questionsToBuffer(questionList: DNSQuestion[]): Buffer {
+  private static questionsToBuffer(questionList: DNSQuestion[]): Buffer {
     return Buffer.concat(
       questionList.map((question: DNSQuestion) => {
         const { name, type, qclass } = question;
@@ -105,7 +118,7 @@ export class Packet {
     );
   }
 
-  toBuffer(buf: Buffer): Buffer {
+  toBuffer(): Buffer {
     let header = Buffer.alloc(12);
 
     header.writeUInt16BE(this.headerValues.id, 0);
@@ -120,14 +133,14 @@ export class Packet {
       this.headerValues.z |
       this.headerValues.z;
 
-    header.writeUint16BE(flags, 2);
+    header.writeUInt16BE(flags, 2);
 
     header.writeUint16BE(this.headerValues.qdcount, 4);
     header.writeUint16BE(this.headerValues.ancount, 6);
     header.writeUint16BE(this.headerValues.nscount, 8);
     header.writeUint16BE(this.headerValues.arcount, 10);
 
-    const bufQuestion = this.questionsToBuffer(this.questions);
+    const bufQuestion = Packet.questionsToBuffer(this.questions);
 
     return Buffer.concat([header, bufQuestion]);
   }
