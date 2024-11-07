@@ -135,10 +135,10 @@ export class Packet {
 
     header.writeUInt16BE(flags, 2);
 
-    header.writeUint16BE(this.headerValues.qdcount, 4);
-    header.writeUint16BE(this.headerValues.ancount, 6);
-    header.writeUint16BE(this.headerValues.nscount, 8);
-    header.writeUint16BE(this.headerValues.arcount, 10);
+    header.writeUInt16BE(this.headerValues.qdcount, 4);
+    header.writeUInt16BE(this.headerValues.ancount, 6);
+    header.writeUInt16BE(this.headerValues.nscount, 8);
+    header.writeUInt16BE(this.headerValues.arcount, 10);
 
     const bufQuestion = Packet.questionsToBuffer(this.questions);
 
