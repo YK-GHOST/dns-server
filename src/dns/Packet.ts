@@ -54,13 +54,13 @@ export class Packet {
   };
 
   private questionValues: DNSQuestion = {
-    name: "codecrafters.io",
+    name: "ghost.io",
     type: Packet.DNSTypeValues.A,
     qclass: Packet.DNSClassValues.IN,
   };
 
   private answerValues: DNSAnswer = {
-    name: "codecrafters.io",
+    name: "ghost.io",
     type: Packet.DNSTypeValues.A,
     aclass: Packet.DNSClassValues.IN,
     ttl: 60,
@@ -77,6 +77,9 @@ export class Packet {
     }
 
     try {
+      this.questions.push(this.questionValues);
+      this.answers.push(this.answerValues);
+
       const headerFlags = buf.readUInt16BE(2);
       this.headerValues.id = buf.readUInt16BE(0);
       this.headerValues.opcode = (headerFlags >> 11) & 0x0f;
@@ -86,9 +89,6 @@ export class Packet {
       // Initialize question and answer counts based on actual data if available
       this.headerValues.qdcount = this.questions.length;
       this.headerValues.ancount = this.answers.length;
-
-      this.questions.push(this.questionValues);
-      this.answers.push(this.answerValues);
     } catch (error) {
       console.error("Error processing DNS packet:", error);
     }
@@ -118,6 +118,30 @@ export class Packet {
     );
   }
 
+  private static answerToBuffer(answerList: DNSAnswer[]) {
+    return Buffer.concat(
+      answerList.map((answer: DNSAnswer) => {
+        const { name, type, aclass, ttl, data } = answer;
+        const str = name
+          .split(".")
+          .map((e) => `${String.fromCharCode(e.length)}${e}`)
+          .join("");
+        const buffer = Buffer.alloc(10);
+
+        buffer.writeUInt16BE(type);
+        buffer.writeUInt16BE(aclass, 2);
+        buffer.writeUInt16BE(ttl, 4);
+        buffer.writeUInt16BE(4, 8);
+
+        return Buffer.concat([
+          Buffer.from(str + "\0", "binary"),
+          buffer,
+          Buffer.from(data + "\0", "binary"),
+        ]);
+      })
+    );
+  }
+
   toBuffer(): Buffer {
     let header = Buffer.alloc(12);
 
@@ -141,7 +165,9 @@ export class Packet {
     header.writeUInt16BE(this.headerValues.arcount, 10);
 
     const bufQuestion = Packet.questionsToBuffer(this.questions);
+    const bufAnswer = Packet.answerToBuffer(this.answers);
+    console.log("answer", bufAnswer);
 
-    return Buffer.concat([header, bufQuestion]);
+    return Buffer.concat([header, bufQuestion, bufAnswer]);
   }
 }
