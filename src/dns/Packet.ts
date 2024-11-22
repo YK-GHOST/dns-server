@@ -14,7 +14,7 @@ export class Packet {
 
   private headerValues: Header = {
     id: 1234,
-    qr: 1 << 15,
+    qr: 1,
     opcode: 0,
     aa: 0,
     tc: 0,
@@ -80,7 +80,7 @@ export class Packet {
       this.questions.push(this.questionValues);
       this.answers.push(this.answerValues);
 
-      const headerFlags = buf.readUInt16BE(2);
+      const headerFlags: number = buf.readUInt16BE(2);
       this.headerValues.id = buf.readUInt16BE(0);
       this.headerValues.opcode = (headerFlags >> 11) & 0x0f;
       this.headerValues.rd = (headerFlags >> 8) & 0x1;
@@ -148,14 +148,14 @@ export class Packet {
     header.writeUInt16BE(this.headerValues.id, 0);
 
     const flags =
-      this.headerValues.qr |
-      this.headerValues.opcode |
-      this.headerValues.aa |
-      this.headerValues.tc |
-      this.headerValues.rd |
-      this.headerValues.ra |
-      this.headerValues.z |
-      this.headerValues.z;
+      (this.headerValues.qr << 15) |
+      (this.headerValues.opcode << 11) |
+      (this.headerValues.aa << 10) |
+      (this.headerValues.tc << 9) |
+      (this.headerValues.rd << 8) |
+      (this.headerValues.ra << 7) |
+      (this.headerValues.z << 4) |
+      this.headerValues.rcode;
 
     header.writeUInt16BE(flags, 2);
 
