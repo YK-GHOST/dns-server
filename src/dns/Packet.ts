@@ -1,3 +1,4 @@
+import { off } from "process";
 import {
   Header,
   DNSQuestion,
@@ -70,6 +71,8 @@ export class Packet {
   private questions: DNSQuestion[] = [];
   private answers: DNSAnswer[] = [];
 
+  private offset: number = 12;
+
   //Constructor
   constructor(buf: Buffer) {
     if (buf.length < 12) {
@@ -77,7 +80,6 @@ export class Packet {
     }
 
     try {
-      this.questions.push(this.questionValues);
       this.answers.push(this.answerValues);
 
       const headerFlags: number = buf.readUInt16BE(2);
@@ -87,8 +89,12 @@ export class Packet {
       this.headerValues.rcode = (headerFlags >> 0) & 0x0f;
 
       // Initialize question and answer counts based on actual data if available
-      this.headerValues.qdcount = this.questions.length;
+      this.headerValues.qdcount = buf.readUInt16BE(4);
       this.headerValues.ancount = this.answers.length;
+      this.headerValues.nscount = buf.readUInt16BE(8);
+      this.headerValues.arcount = buf.readUInt16BE(10);
+
+      this.offset = this.parseQuestions(buf, this.offset);
     } catch (error) {
       console.error("Error processing DNS packet:", error);
     }
@@ -98,6 +104,45 @@ export class Packet {
   /**
    * toBuffer() -> buffer with Header, Question,Answer
    */
+
+  private parseQuestions(buf: Buffer, offset: number): number {
+    let currentOffset: number = offset;
+    console.log("head", this.questions.length);
+    while (this.headerValues.qdcount > this.questions.length) {
+      let labels: string[] = [];
+
+      while (buf[currentOffset] !== 0) {
+        const length = buf[currentOffset];
+        currentOffset += 1;
+
+        labels.push(
+          buf.toString("ascii", currentOffset, currentOffset + length)
+        );
+
+        currentOffset += length;
+      }
+
+      currentOffset += 1;
+      const name = labels.join(".");
+      console.log(name);
+      const type = buf.readUInt16BE(currentOffset);
+      currentOffset += 2;
+      const qclass = buf.readUInt16BE(currentOffset);
+      currentOffset += 2;
+
+      if (
+        type !== Packet.DNSTypeValues.A ||
+        qclass !== Packet.DNSClassValues.IN
+      ) {
+        throw new Error(
+          `Unsupported question type (${type}) or class (${qclass}).`
+        );
+      }
+
+      this.questions.push({ name, type, qclass });
+    }
+    return currentOffset;
+  }
 
   private static questionsToBuffer(questionList: DNSQuestion[]): Buffer {
     return Buffer.concat(
@@ -133,10 +178,14 @@ export class Packet {
         buffer.writeUInt16BE(ttl, 4);
         buffer.writeUInt16BE(4, 8);
 
+        const ipBuffer = Buffer.from(
+          data.split(".").map((octet) => parseInt(octet, 10))
+        );
+
         return Buffer.concat([
           Buffer.from(str + "\0", "binary"),
           buffer,
-          Buffer.from(data + "\0", "binary"),
+          ipBuffer,
         ]);
       })
     );
